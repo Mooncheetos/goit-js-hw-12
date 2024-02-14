@@ -144,6 +144,65 @@ function appendImages(images) {
     currentImagesCount += images.length;   
 }
 
+async function searchBatmanCar(page = 1) {
+    const query = 'batman car';
+    try {
+        const images = await searchImages(query, page);
+        if (images.length > 0) {
+            displayImages(images);
+            toastSuccess(`Found ${images.length} images of Batman's car`);
+            initializeLightbox();
+            if (images.length < 15) {
+                toastError('We are sorry, but you have reached the end of search results.');
+                toggleLoadMoreBtn(false);
+            } else {
+                toggleLoadMoreBtn(true);
+            }
+        } else {
+            galleryContainer.innerHTML = '';
+            toastError('Sorry, there are no images of Batman\'s car. Please try another search query.');
+            toggleLoadMoreBtn(false);
+        }
+    } finally {
+        loaderContainer.style.display = 'none';
+    }
+}
+
+// Обработчик события отправки формы для осуществления поиска "batman car"
+searchForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    toggleLoadMoreBtn(false);
+    const query = document.getElementById('query').value.trim();
+    if (!query) {
+        iziToast.warning({ title: 'Warning', message: 'Please enter a search query.' });
+        return;
+    }
+    try {
+        loaderContainer.style.display = 'block';
+        currentQuery = query;
+        currentPage = 1;
+        await searchBatmanCar(currentPage);
+    } finally {
+        loaderContainer.style.display = 'none';
+    }
+});
+
+// Обработчик события клика на кнопке "Load More"
+loadMoreBtn.addEventListener('click', async function () {
+    try {
+        loaderContainer.style.display = 'block';
+        loadingIndicator.style.display = 'block';
+        currentPage++;
+        await searchBatmanCar(currentPage);
+    } catch (error) {
+        console.error('Error fetching images:', error);
+        toastError('Failed to fetch additional images.');
+    } finally {
+        loaderContainer.style.display = 'none';
+        loadingIndicator.style.display = 'none';
+    }
+});
+
 function initializeLightbox() {
     new SimpleLightbox('.gallery a').refresh();
 }
