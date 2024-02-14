@@ -15,6 +15,7 @@ let currentPage = 1;
 let currentQuery = '';
 let currentImagesCount = 0;
 let totalHits = 0;
+let isBatmanCarSearch = false;
 
 function toastSuccess(message) {
     iziToast.success({
@@ -62,21 +63,16 @@ async function scrollToNextGroup() {
     });
 }
 
-searchForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    toggleLoadMoreBtn(false);
-    const query = document.getElementById('query').value.trim();
-    if (!query) {
-        iziToast.warning({ title: 'Warning', message: 'Please enter a search query.' });
-        return;
-    }
+async function performSearch(query, page) {
     try {
         toggleLoader(true);
-        currentQuery = query;
-        currentPage = 1;
-        const images = await searchImages(query, currentPage);
+        const images = await searchImages(query, page);
         if (images.length > 0) {
-            displayImages(images);
+            if (page === 1) {
+                displayImages(images);
+            } else {
+                appendImages(images);
+            }
             toastSuccess(`Was found: ${images.length} images`);
             initializeLightbox();
             if (images.length < 15) {
@@ -85,13 +81,33 @@ searchForm.addEventListener('submit', async function (event) {
             } else {
                 toggleLoadMoreBtn(true);
             }
+            scrollToNextGroup();
         } else {
             galleryContainer.innerHTML = '';
-            toastError('Sorry, there are no images matching your search query. Please try again!');
+            toastError(`Sorry, there are no images matching your search query "${query}". Please try again!`);
             toggleLoadMoreBtn(false);
         }
     } finally {
         toggleLoader(false);
+    }
+}
+
+searchForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    toggleLoadMoreBtn(false);
+    const query = document.getElementById('query').value.trim();
+    if (!query) {
+        iziToast.warning({ title: 'Warning', message: 'Please enter a search query.' });
+        return;
+    }
+    currentQuery = query;
+    currentPage = 1;
+    if (query.toLowerCase() === 'batman car') {
+        isBatmanCarSearch = true;
+        await performSearch(query, currentPage);
+    } else {
+        isBatmanCarSearch = false;
+        await performSearch(query, currentPage);
     }
 });
 
@@ -99,20 +115,7 @@ loadMoreBtn.addEventListener('click', async function () {
     try {
         toggleLoader(true);
         currentPage++;
-        const images = await searchImages(currentQuery, currentPage);
-        if (images.length > 0) {
-            appendImages(images);
-            toastSuccess(`Loaded additional ${images.length} images`);
-            initializeLightbox();
-            if (images.length < 15) {
-                toastError('We are sorry, but you have reached the end of search results.');
-                toggleLoadMoreBtn(false);
-            }
-            scrollToNextGroup();
-        } else {
-            toastError('No more images to load');
-            toggleLoadMoreBtn(false);
-        }
+        await performSearch(currentQuery, currentPage);
     } catch (error) {
         toastError('Failed to fetch additional images.');
     } finally {
@@ -122,7 +125,21 @@ loadMoreBtn.addEventListener('click', async function () {
 
 function displayImages(images) {
     galleryContainer.innerHTML = '';
-    appendImages(images);
+    const fragment = document.createDocumentFragment();
+    images.forEach(image => {
+        const { largeImageURL, webformatURL, tags, likes, views, comments, downloads } = image;
+        const imageCard = document.createElement('div');
+        imageCard.classList.add('image-card');
+        imageCard.innerHTML = `
+            <a href="${largeImageURL}" data-lightbox="image-set" data-title="${tags}">
+                <img src="${webformatURL}" alt="${tags}">
+                <div class="info">Likes: ${likes}, Views: ${views}, Comments: ${comments}, Downloads: ${downloads}</div>
+            </a>
+        `;
+        fragment.appendChild(imageCard);
+    });
+    galleryContainer.appendChild(fragment);
+    currentImagesCount += images.length;   
 }
 
 function appendImages(images) {
@@ -140,68 +157,8 @@ function appendImages(images) {
         fragment.appendChild(imageCard);
     });
     galleryContainer.appendChild(fragment);
-
     currentImagesCount += images.length;   
 }
-
-async function searchBatmanCar(page = 1) {
-    const query = 'batman car';
-    try {
-        const images = await searchImages(query, page);
-        if (images.length > 0) {
-            displayImages(images);
-            toastSuccess(`Found ${images.length} images of Batman's car`);
-            initializeLightbox();
-            if (images.length < 15) {
-                toastError('We are sorry, but you have reached the end of search results.');
-                toggleLoadMoreBtn(false);
-            } else {
-                toggleLoadMoreBtn(true);
-            }
-        } else {
-            galleryContainer.innerHTML = '';
-            toastError('Sorry, there are no images of Batman\'s car. Please try another search query.');
-            toggleLoadMoreBtn(false);
-        }
-    } finally {
-        loaderContainer.style.display = 'none';
-    }
-}
-
-// Обработчик события отправки формы для осуществления поиска "batman car"
-searchForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    toggleLoadMoreBtn(false);
-    const query = document.getElementById('query').value.trim();
-    if (!query) {
-        iziToast.warning({ title: 'Warning', message: 'Please enter a search query.' });
-        return;
-    }
-    try {
-        loaderContainer.style.display = 'block';
-        currentQuery = query;
-        currentPage = 1;
-        await searchBatmanCar(currentPage);
-    } finally {
-        loaderContainer.style.display = 'none';
-    }
-});
-
-// Обработчик события клика на кнопке "Load More"
-loadMoreBtn.addEventListener('click', async function () {
-    try {
-        loaderContainer.style.display = 'block';
-        loadingIndicator.style.display = 'block';
-        currentPage++;
-        await searchBatmanCar(currentPage);
-    } catch (error) {
-        console.error('Error fetching images:', error);
-        toastError('Failed to fetch additional images.');
-    } finally {
-        loaderContainer.style.display = 'none';
-        loadingIndicator.style.display = 'none';
-    }
-});
 
 function initializeLightbox() {
     new SimpleLightbox('.gallery a').refresh();
