@@ -43,7 +43,14 @@ function toggleLoader(show) {
 }
 
 async function searchImages(query, page = 1) {
-    const url = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(query)}&image_type=photo&orientation=horizontal&safesearch=true&page=${page}&per_page=15`;
+    const request = {
+        key: apiKey,
+        image_type: 'photo',
+        orientation: 'horizontal',
+        safesearch: true,
+        per_page: 15
+    };
+    const url = `https://pixabay.com/api/?key=${request.key}&q=${encodeURIComponent(query)}&image_type=${request.image_type}&orientation=${request.orientation}&safesearch=${request.safesearch}&page=${page}&per_page=${request.per_page}`;
     try {
         const response = await axios.get(url);
         totalHits = response.data.totalHits;
@@ -66,6 +73,7 @@ async function scrollToNextGroup() {
 async function performSearch(query, page) {
     try {
         toggleLoader(true);
+        currentPage = 1;
         const images = await searchImages(query, page);
         if (images.length > 0) {
             if (page === 1) {
